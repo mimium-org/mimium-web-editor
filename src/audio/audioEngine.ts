@@ -10,6 +10,7 @@ export type RuntimeSampleInfo = {
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private mimiumNode: MimiumProcessorNode | null = null;
+  private masterGain: GainNode | null = null;
   private analyserL: AnalyserNode | null = null;
   private analyserR: AnalyserNode | null = null;
   private _isPlaying = false;
@@ -17,11 +18,11 @@ export class AudioEngine {
   private runtimeSampleInfo: RuntimeSampleInfo | null = null;
 
   async play(src: string): Promise<void> {
-    if (this._isPlaying) {
+    if (this.ctx || this.mimiumNode) {
       await this.stop();
     }
 
-    const ctx = new AudioContext();
+    const ctx = new AudioContext({ latencyHint: "interactive" });
     try {
       const mimiumWebAudio = await loadMimiumWebAudioModule();
       const node = await mimiumWebAudio.setupMimiumAudioWorklet(ctx, src, mimiumProcessorUrl);
@@ -33,17 +34,26 @@ export class AudioEngine {
       analyserL.fftSize = 2048;
       analyserR.fftSize = 2048;
 
-      // Keep playback path untouched to preserve worklet channel layout.
-      node.connect(ctx.destination);
+      const masterGain = ctx.createGain();
+      masterGain.gain.value = 1.8;
+      node.connect(masterGain);
+      masterGain.connect(ctx.destination);
 
-      // Split only for metering.
       const splitter = ctx.createChannelSplitter(2);
-      node.connect(splitter);
+      masterGain.connect(splitter);
       splitter.connect(analyserL, 0, 0);
       splitter.connect(analyserR, 1, 0);
 
+      if (ctx.state !== "running") {
+        await ctx.resume();
+      }
+      if (ctx.state !== "running") {
+        throw new Error(`AudioContext is not running (state: ${ctx.state})`);
+      }
+
       this.ctx = ctx;
       this.mimiumNode = node;
+      this.masterGain = masterGain;
       this.analyserL = analyserL;
       this.analyserR = analyserR;
       this._isPlaying = true;
@@ -66,13 +76,21 @@ export class AudioEngine {
   }
 
   async stop(): Promise<void> {
+    if (this.mimiumNode) {
+      this.mimiumNode.disconnect();
+    }
+    if (this.masterGain) {
+      this.masterGain.disconnect();
+    }
+
     if (this.ctx) {
       await this.ctx.close();
       this.ctx = null;
-      this.mimiumNode = null;
-      this.analyserL = null;
-      this.analyserR = null;
     }
+    this.mimiumNode = null;
+    this.masterGain = null;
+    this.analyserL = null;
+    this.analyserR = null;
     this._isPlaying = false;
     this.compileData = null;
     this.runtimeSampleInfo = null;
@@ -109,6 +127,16 @@ export class AudioEngine {
       left: measure(this.analyserL),
       right: measure(this.analyserR),
     };
+  }
+
+  getWaveforms(): { left: Float32Array; right: Float32Array } {
+    const leftLen = this.analyserL?.fftSize ?? 2048;
+    const rightLen = this.analyserR?.fftSize ?? 2048;
+    const left = new Float32Array(leftLen);
+    const right = new Float32Array(rightLen);
+    this.analyserL?.getFloatTimeDomainData(left);
+    this.analyserR?.getFloatTimeDomainData(right);
+    return { left, right };
   }
 
   get isPlaying(): boolean {

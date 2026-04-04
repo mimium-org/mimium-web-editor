@@ -5,6 +5,7 @@ import { LANGUAGE_ID, registerMimiumLanguage } from "./editor/language";
 import { registerThemes } from "./editor/themes";
 import { ExampleSidebar } from "./ui/exampleSidebar";
 import { SignalMeter } from "./ui/signalMeter";
+import { WaveformScope } from "./ui/waveformScope";
 import { encodeBase64Url, getSourceFromHash } from "./utils/hashSource";
 
 const DEFAULT_SOURCE = `fn counter(){
@@ -40,6 +41,7 @@ const sidebarBackdrop = document.getElementById("sidebarBackdrop") as HTMLElemen
 const statusDot = document.getElementById("statusDot") as HTMLDivElement;
 const statusText = document.getElementById("statusText") as HTMLSpanElement;
 const meterCanvas = document.getElementById("meterCanvas") as HTMLCanvasElement;
+const scopeCanvas = document.getElementById("scopeCanvas") as HTMLCanvasElement;
 const errorPanel = document.getElementById("errorPanel") as HTMLDivElement;
 const errorMsg = document.getElementById("errorMsg") as HTMLPreElement;
 const errorClose = document.getElementById("errorClose") as HTMLButtonElement;
@@ -70,6 +72,7 @@ const editor = monaco.editor.create(editorContainer, {
 });
 
 const meter = new SignalMeter(meterCanvas);
+const scope = new WaveformScope(scopeCanvas);
 let engine: AudioEngine | null = null;
 let meterRaf: number | null = null;
 let playingStatusBase = "Playing";
@@ -139,8 +142,11 @@ function startMeterLoop(): void {
       meter.reset();
       return;
     }
+
     const { left, right } = engine.getLevels();
     meter.update(left, right);
+    const wave = engine.getWaveforms();
+    scope.update(wave.left, wave.right);
 
     meterRaf = requestAnimationFrame(tick);
   };
@@ -154,6 +160,7 @@ function stopMeterLoop(): void {
     meterRaf = null;
   }
   meter.reset();
+  scope.reset();
 }
 
 playBtn.addEventListener("click", async () => {
