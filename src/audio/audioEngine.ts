@@ -16,6 +16,7 @@ export class AudioEngine {
   private _isPlaying = false;
   private compileData: unknown = null;
   private runtimeSampleInfo: RuntimeSampleInfo | null = null;
+  private masterVolume = 1.8;
 
   async play(src: string): Promise<void> {
     if (this.ctx || this.mimiumNode) {
@@ -35,7 +36,7 @@ export class AudioEngine {
       analyserR.fftSize = 2048;
 
       const masterGain = ctx.createGain();
-      masterGain.gain.value = 1.8;
+      masterGain.gain.value = this.masterVolume;
       node.connect(masterGain);
       masterGain.connect(ctx.destination);
 
@@ -145,5 +146,13 @@ export class AudioEngine {
 
   getSampleInfo(): RuntimeSampleInfo | null {
     return this.runtimeSampleInfo;
+  }
+
+  setMasterVolume(volume: number): void {
+    const normalized = Number.isFinite(volume) ? Math.max(0, Math.min(3.2, volume)) : this.masterVolume;
+    this.masterVolume = normalized;
+    if (this.masterGain) {
+      this.masterGain.gain.value = normalized;
+    }
   }
 }

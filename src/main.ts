@@ -42,6 +42,8 @@ const statusDot = document.getElementById("statusDot") as HTMLDivElement;
 const statusText = document.getElementById("statusText") as HTMLSpanElement;
 const meterCanvas = document.getElementById("meterCanvas") as HTMLCanvasElement;
 const scopeCanvas = document.getElementById("scopeCanvas") as HTMLCanvasElement;
+const masterVolSlider = document.getElementById("masterVolSlider") as HTMLInputElement;
+const masterVolValue = document.getElementById("masterVolValue") as HTMLSpanElement;
 const errorPanel = document.getElementById("errorPanel") as HTMLDivElement;
 const errorMsg = document.getElementById("errorMsg") as HTMLPreElement;
 const errorClose = document.getElementById("errorClose") as HTMLButtonElement;
@@ -76,13 +78,36 @@ const scope = new WaveformScope(scopeCanvas);
 let engine: AudioEngine | null = null;
 let meterRaf: number | null = null;
 let playingStatusBase = "Playing";
+let masterVolumeDb = Number.parseFloat(masterVolSlider.value) || 0;
+
+function dbToGain(db: number): number {
+  return 10 ** (db / 20);
+}
 
 async function getEngine(): Promise<AudioEngine> {
   if (!engine) {
     engine = new AudioEngine();
+    engine.setMasterVolume(dbToGain(masterVolumeDb));
   }
   return engine;
 }
+
+function renderMasterVolumeValue(db: number): void {
+  const sign = db >= 0 ? "+" : "";
+  masterVolValue.textContent = `${sign}${db.toFixed(1)}dB`;
+}
+
+renderMasterVolumeValue(masterVolumeDb);
+
+masterVolSlider.addEventListener("input", () => {
+  const nextDb = Number.parseFloat(masterVolSlider.value);
+  if (!Number.isFinite(nextDb)) {
+    return;
+  }
+  masterVolumeDb = nextDb;
+  renderMasterVolumeValue(masterVolumeDb);
+  engine?.setMasterVolume(dbToGain(masterVolumeDb));
+});
 
 requestAnimationFrame(() => {
   loadMimiumWebAudioModule()

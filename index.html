@@ -44,6 +44,7 @@
     .sidebar-list, .sidebar-item, .sidebar-msg, .sidebar-backdrop,
     .editor-area, #editorContainer,
     .controls, .btn, .btn-sidebar,
+    .volume-control, .volume-label, .volume-value, #masterVolSlider,
     .meter-area, #meterCanvas, #scopeCanvas,
     .status-area, .status-dot,
     .error-panel, .error-panel-icon, .error-panel-msg, .error-panel-close {
@@ -72,22 +73,27 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      min-width: 0;
     }
 
     .logo {
+      width: 96px;
       height: 28px;
-      width: auto;
+      object-fit: contain;
+      flex: 0 0 auto;
     }
 
     .logo-link {
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-shrink: 0;
       text-decoration: none;
       border-radius: 4px;
       padding: 2px 4px;
       margin: -2px -4px;
       transition: opacity 0.15s;
+      white-space: nowrap;
     }
     .logo-link:hover { opacity: 0.75; }
 
@@ -96,6 +102,9 @@
       font-weight: 600;
       color: var(--accent);
       user-select: none;
+      white-space: nowrap;
+      word-break: keep-all;
+      flex-shrink: 0;
     }
 
     /* ── Body: sidebar + editor side by side ── */
@@ -238,6 +247,35 @@
     .controls {
       display: flex;
       gap: 6px;
+    }
+
+    .volume-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 190px;
+      color: #aab3c4;
+      font-size: 11px;
+      user-select: none;
+    }
+
+    .volume-label {
+      font-family: "SF Mono", "Fira Mono", Menlo, Consolas, monospace;
+      opacity: 0.9;
+      white-space: nowrap;
+    }
+
+    #masterVolSlider {
+      width: 120px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .volume-value {
+      width: 38px;
+      text-align: right;
+      font-family: "SF Mono", "Fira Mono", Menlo, Consolas, monospace;
+      color: #8ea2bd;
     }
 
     /* ── Buttons ── */
@@ -402,6 +440,11 @@
         <button class="btn btn-play"   id="playBtn">&#9654; Play</button>
         <button class="btn btn-stop"   id="stopBtn">&#9632; Stop</button>
         <button class="btn btn-update" id="updateBtn" disabled>&#8635; Update</button>
+      </div>
+      <div class="volume-control">
+        <span class="volume-label">Master Vol.</span>
+        <input id="masterVolSlider" type="range" min="-70" max="10" step="0.1" value="5.1" aria-label="Master Volume (dB)">
+        <span class="volume-value" id="masterVolValue">+5.1dB</span>
       </div>
       <div class="meter-area">
         <canvas id="meterCanvas"></canvas>
