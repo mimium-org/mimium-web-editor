@@ -1,0 +1,121 @@
+import type { MimiumProcessorNode } from "@mimium/mimium-webaudio";
+import { loadMimiumWebAudioModule, mimiumProcessorUrl } from "./mimiumModule";
+
+export type RuntimeSampleInfo = {
+  contextSampleRate: number;
+  compileSampleRate: number | null;
+  compileBufferSize: number | null;
+};
+
+export class AudioEngine {
+  private ctx: AudioContext | null = null;
+  private mimiumNode: MimiumProcessorNode | null = null;
+  private analyserL: AnalyserNode | null = null;
+  private analyserR: AnalyserNode | null = null;
+  private _isPlaying = false;
+  private compileData: unknown = null;
+  private runtimeSampleInfo: RuntimeSampleInfo | null = null;
+
+  async play(src: string): Promise<void> {
+    if (this._isPlaying) {
+      await this.stop();
+    }
+
+    const ctx = new AudioContext();
+    try {
+      const mimiumWebAudio = await loadMimiumWebAudioModule();
+      const node = await mimiumWebAudio.setupMimiumAudioWorklet(ctx, src, mimiumProcessorUrl);
+      this.compileData = (node as unknown as { data?: unknown }).data ?? null;
+      const compileData = this.compileData as { samplerate?: number; buffersize?: number } | null;
+
+      const analyserL = ctx.createAnalyser();
+      const analyserR = ctx.createAnalyser();
+      analyserL.fftSize = 2048;
+      analyserR.fftSize = 2048;
+
+      // Keep playback path untouched to preserve worklet channel layout.
+      node.connect(ctx.destination);
+
+      // Split only for metering.
+      const splitter = ctx.createChannelSplitter(2);
+      node.connect(splitter);
+      splitter.connect(analyserL, 0, 0);
+      splitter.connect(analyserR, 1, 0);
+
+      this.ctx = ctx;
+      this.mimiumNode = node;
+      this.analyserL = analyserL;
+      this.analyserR = analyserR;
+      this._isPlaying = true;
+      this.runtimeSampleInfo = {
+        contextSampleRate: ctx.sampleRate,
+        compileSampleRate: compileData?.samplerate ?? null,
+        compileBufferSize: compileData?.buffersize ?? null,
+      };
+
+      if (
+        this.runtimeSampleInfo.compileSampleRate !== null
+        && this.runtimeSampleInfo.compileSampleRate !== this.runtimeSampleInfo.contextSampleRate
+      ) {
+        console.warn("[mimium-editor] compile/context sample-rate mismatch", this.runtimeSampleInfo);
+      }
+    } catch (err) {
+      void ctx.close().catch(() => undefined);
+      throw err;
+    }
+  }
+
+  async stop(): Promise<void> {
+    if (this.ctx) {
+      await this.ctx.close();
+      this.ctx = null;
+      this.mimiumNode = null;
+      this.analyserL = null;
+      this.analyserR = null;
+    }
+    this._isPlaying = false;
+    this.compileData = null;
+    this.runtimeSampleInfo = null;
+  }
+
+  update(src: string): void {
+    if (!this.mimiumNode || !this.compileData) {
+      return;
+    }
+    this.mimiumNode.port.postMessage({
+      type: "compile",
+      data: {
+        ...(this.compileData as object),
+        src,
+      },
+    });
+  }
+
+  getLevels(): { left: number; right: number } {
+    const measure = (analyser: AnalyserNode | null): number => {
+      if (!analyser) {
+        return 0;
+      }
+      const arr = new Float32Array(analyser.fftSize);
+      analyser.getFloatTimeDomainData(arr);
+      let sum = 0;
+      for (let i = 0; i < arr.length; i += 1) {
+        sum += arr[i] * arr[i];
+      }
+      return Math.sqrt(sum / arr.length);
+    };
+
+    return {
+      left: measure(this.analyserL),
+      right: measure(this.analyserR),
+    };
+  }
+
+  get isPlaying(): boolean {
+    return this._isPlaying;
+  }
+
+  getSampleInfo(): RuntimeSampleInfo | null {
+    return this.runtimeSampleInfo;
+  }
+}
