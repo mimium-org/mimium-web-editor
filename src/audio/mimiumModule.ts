@@ -1,5 +1,7 @@
 import type { MimiumProcessorNode } from "@mimium/mimium-webaudio";
-import mimiumProcessorUrl from "/node_modules/@mimium/mimium-webaudio/dist/audioprocessor.mjs?url";
+
+const baseUrl = (import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
+const mimiumProcessorUrl = `${baseUrl}assets/audioprocessor.mjs`;
 
 type MimiumWebAudioModule = {
   setupMimiumAudioWorklet: (
