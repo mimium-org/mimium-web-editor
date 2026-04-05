@@ -317,6 +317,11 @@
     .btn-update:hover:not(:disabled) { background: rgba(204,167,0,0.15); }
     .btn-share  { border-color: var(--accent);  color: var(--accent); }
     .btn-share:hover:not(:disabled)  { background: rgba(86,156,214,0.15); }
+    .btn-share {
+      max-width: min(52vw, 520px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
     /* ── Meter ── */
     .meter-area {
@@ -411,7 +416,7 @@
         </a>
       </div>
       <div>
-        <button class="btn btn-share" id="shareBtn">Share URL</button>
+        <button class="btn btn-share" id="shareBtn" title="Share URL">&#128279; Share URL</button>
       </div>
     </header>
 
@@ -442,7 +447,7 @@
         <button class="btn btn-update" id="updateBtn" disabled>&#8635; Update</button>
       </div>
       <div class="volume-control">
-        <span class="volume-label">Master Vol.</span>
+        <span class="volume-label">Main Vol.</span>
         <input id="masterVolSlider" type="range" min="-70" max="10" step="0.1" value="5.1" aria-label="Master Volume (dB)">
         <span class="volume-value" id="masterVolValue">+5.1dB</span>
       </div>

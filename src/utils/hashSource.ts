@@ -9,8 +9,16 @@ export function encodeBase64Url(text: string): string {
 
 function decodeBase64Url(text: string): string | null {
   try {
-    const b64 = text.replace(/-/g, "+").replace(/_/g, "/");
-    const binary = atob(b64);
+    const decodedText = (() => {
+      try {
+        return decodeURIComponent(text);
+      } catch {
+        return text;
+      }
+    })();
+    const normalized = decodedText.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const binary = atob(padded);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i += 1) {
       bytes[i] = binary.charCodeAt(i);
@@ -26,6 +34,9 @@ export function getSourceFromHash(): string | null {
   if (!hash) {
     return null;
   }
-  const payload = hash.startsWith("src=") ? hash.slice(4) : hash;
+
+  // Accept both "#src=..." and plain "#..." forms.
+  const params = new URLSearchParams(hash);
+  const payload = params.get("src") ?? (hash.startsWith("src=") ? hash.slice(4) : hash);
   return decodeBase64Url(payload);
 }

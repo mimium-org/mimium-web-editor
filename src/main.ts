@@ -28,8 +28,6 @@ self.MonacoEnvironment = {
 registerMimiumLanguage();
 registerThemes();
 
-const initialSource = getSourceFromHash() ?? DEFAULT_SOURCE;
-
 const editorContainer = document.getElementById("editorContainer") as HTMLDivElement;
 const playBtn = document.getElementById("playBtn") as HTMLButtonElement;
 const stopBtn = document.getElementById("stopBtn") as HTMLButtonElement;
@@ -48,8 +46,16 @@ const errorPanel = document.getElementById("errorPanel") as HTMLDivElement;
 const errorMsg = document.getElementById("errorMsg") as HTMLPreElement;
 const errorClose = document.getElementById("errorClose") as HTMLButtonElement;
 
+function getInitialSource(): string {
+  const sourceFromUrl = getSourceFromHash();
+  if (sourceFromUrl !== null) {
+    return sourceFromUrl;
+  }
+  return DEFAULT_SOURCE;
+}
+
 const editor = monaco.editor.create(editorContainer, {
-  value: initialSource,
+  value: getInitialSource(),
   language: LANGUAGE_ID,
   theme: "mimium-dark",
   fontFamily: "Menlo, Monaco, 'Courier New', monospace",
@@ -79,6 +85,7 @@ let engine: AudioEngine | null = null;
 let meterRaf: number | null = null;
 let playingStatusBase = "Playing";
 let masterVolumeDb = Number.parseFloat(masterVolSlider.value) || 0;
+let shareLabelResetTimer: number | null = null;
 
 function dbToGain(db: number): number {
   return 10 ** (db / 20);
@@ -234,24 +241,61 @@ updateBtn.addEventListener("click", () => {
   }
 });
 
-shareBtn.addEventListener("click", () => {
+shareBtn.addEventListener("click", async () => {
   const source = editor.getValue();
   const encoded = encodeBase64Url(source);
   const url = `${window.location.origin}${window.location.pathname}#src=${encoded}`;
+  const defaultShareLabelHtml = "&#128279; Share URL";
+  const copiedShareLabelHtml = "&#128279; URL copied";
 
   window.history.replaceState(null, "", `#src=${encoded}`);
-  navigator.clipboard.writeText(url).then(
-    () => {
-      shareBtn.textContent = "Copied!";
-      setTimeout(() => {
-        shareBtn.textContent = "Share URL";
-      }, 2000);
-    },
-    () => {
-      prompt("Copy this URL to share:", url);
-    },
-  );
+  try {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error("Clipboard API is not available");
+    }
+    await navigator.clipboard.writeText(url);
+    shareBtn.innerHTML = copiedShareLabelHtml;
+    shareBtn.title = "URL copied";
+    if (shareLabelResetTimer !== null) {
+      window.clearTimeout(shareLabelResetTimer);
+    }
+    shareLabelResetTimer = window.setTimeout(() => {
+      shareBtn.innerHTML = defaultShareLabelHtml;
+      shareBtn.title = "Share URL";
+      shareLabelResetTimer = null;
+    }, 1200);
+  } catch {
+    prompt("Copy this URL to share:", url);
+    shareBtn.innerHTML = defaultShareLabelHtml;
+    shareBtn.title = "Share URL";
+  }
 });
+
+function applySourceFromHash(): void {
+  const sourceFromHash = getSourceFromHash();
+  if (sourceFromHash !== null) {
+    if (editor.getValue() === sourceFromHash) {
+      return;
+    }
+    editor.setValue(sourceFromHash);
+  }
+}
+
+const originalPushState = history.pushState.bind(history);
+history.pushState = ((data: unknown, unused: string, url?: string | URL | null) => {
+  originalPushState(data, unused, url);
+  window.dispatchEvent(new Event("locationchange"));
+}) as History["pushState"];
+
+const originalReplaceState = history.replaceState.bind(history);
+history.replaceState = ((data: unknown, unused: string, url?: string | URL | null) => {
+  originalReplaceState(data, unused, url);
+  window.dispatchEvent(new Event("locationchange"));
+}) as History["replaceState"];
+
+window.addEventListener("hashchange", applySourceFromHash);
+window.addEventListener("popstate", applySourceFromHash);
+window.addEventListener("locationchange", applySourceFromHash);
 
 window.addEventListener("resize", () => {
   editor.layout();
