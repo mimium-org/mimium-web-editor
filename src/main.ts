@@ -40,8 +40,8 @@ const statusDot = document.getElementById("statusDot") as HTMLDivElement;
 const statusText = document.getElementById("statusText") as HTMLSpanElement;
 const meterCanvas = document.getElementById("meterCanvas") as HTMLCanvasElement;
 const scopeCanvas = document.getElementById("scopeCanvas") as HTMLCanvasElement;
-const masterVolSlider = document.getElementById("masterVolSlider") as HTMLInputElement;
-const masterVolValue = document.getElementById("masterVolValue") as HTMLSpanElement;
+const mainVolSlider = document.getElementById("mainVolSlider") as HTMLInputElement;
+const mainVolValue = document.getElementById("mainVolValue") as HTMLSpanElement;
 const errorPanel = document.getElementById("errorPanel") as HTMLDivElement;
 const errorMsg = document.getElementById("errorMsg") as HTMLPreElement;
 const errorClose = document.getElementById("errorClose") as HTMLButtonElement;
@@ -84,7 +84,7 @@ const scope = new WaveformScope(scopeCanvas);
 let engine: AudioEngine | null = null;
 let meterRaf: number | null = null;
 let playingStatusBase = "Playing";
-let masterVolumeDb = Number.parseFloat(masterVolSlider.value) || 0;
+let mainVolumeDb = Number.parseFloat(mainVolSlider.value) || 0;
 let shareLabelResetTimer: number | null = null;
 
 function dbToGain(db: number): number {
@@ -94,26 +94,26 @@ function dbToGain(db: number): number {
 async function getEngine(): Promise<AudioEngine> {
   if (!engine) {
     engine = new AudioEngine();
-    engine.setMasterVolume(dbToGain(masterVolumeDb));
+    engine.setMainVolume(dbToGain(mainVolumeDb));
   }
   return engine;
 }
 
-function renderMasterVolumeValue(db: number): void {
+function renderMainVolumeValue(db: number): void {
   const sign = db >= 0 ? "+" : "";
-  masterVolValue.textContent = `${sign}${db.toFixed(1)}dB`;
+  mainVolValue.textContent = `${sign}${db.toFixed(1)}dB`;
 }
 
-renderMasterVolumeValue(masterVolumeDb);
+renderMainVolumeValue(mainVolumeDb);
 
-masterVolSlider.addEventListener("input", () => {
-  const nextDb = Number.parseFloat(masterVolSlider.value);
+mainVolSlider.addEventListener("input", () => {
+  const nextDb = Number.parseFloat(mainVolSlider.value);
   if (!Number.isFinite(nextDb)) {
     return;
   }
-  masterVolumeDb = nextDb;
-  renderMasterVolumeValue(masterVolumeDb);
-  engine?.setMasterVolume(dbToGain(masterVolumeDb));
+  mainVolumeDb = nextDb;
+  renderMainVolumeValue(mainVolumeDb);
+  engine?.setMainVolume(dbToGain(mainVolumeDb));
 });
 
 requestAnimationFrame(() => {

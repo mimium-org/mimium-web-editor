@@ -10,13 +10,13 @@ export type RuntimeSampleInfo = {
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private mimiumNode: MimiumProcessorNode | null = null;
-  private masterGain: GainNode | null = null;
+  private mainGain: GainNode | null = null;
   private analyserL: AnalyserNode | null = null;
   private analyserR: AnalyserNode | null = null;
   private _isPlaying = false;
   private compileData: unknown = null;
   private runtimeSampleInfo: RuntimeSampleInfo | null = null;
-  private masterVolume = 1.8;
+  private mainVolume = 1.0;
 
   async play(src: string): Promise<void> {
     if (this.ctx || this.mimiumNode) {
@@ -35,13 +35,13 @@ export class AudioEngine {
       analyserL.fftSize = 2048;
       analyserR.fftSize = 2048;
 
-      const masterGain = ctx.createGain();
-      masterGain.gain.value = this.masterVolume;
-      node.connect(masterGain);
-      masterGain.connect(ctx.destination);
+      const mainGain = ctx.createGain();
+      mainGain.gain.value = this.mainVolume;
+      node.connect(mainGain);
+      mainGain.connect(ctx.destination);
 
       const splitter = ctx.createChannelSplitter(2);
-      masterGain.connect(splitter);
+      mainGain.connect(splitter);
       splitter.connect(analyserL, 0, 0);
       splitter.connect(analyserR, 1, 0);
 
@@ -54,7 +54,7 @@ export class AudioEngine {
 
       this.ctx = ctx;
       this.mimiumNode = node;
-      this.masterGain = masterGain;
+      this.mainGain = mainGain;
       this.analyserL = analyserL;
       this.analyserR = analyserR;
       this._isPlaying = true;
@@ -80,8 +80,8 @@ export class AudioEngine {
     if (this.mimiumNode) {
       this.mimiumNode.disconnect();
     }
-    if (this.masterGain) {
-      this.masterGain.disconnect();
+    if (this.mainGain) {
+      this.mainGain.disconnect();
     }
 
     if (this.ctx) {
@@ -89,7 +89,7 @@ export class AudioEngine {
       this.ctx = null;
     }
     this.mimiumNode = null;
-    this.masterGain = null;
+    this.mainGain = null;
     this.analyserL = null;
     this.analyserR = null;
     this._isPlaying = false;
@@ -148,11 +148,11 @@ export class AudioEngine {
     return this.runtimeSampleInfo;
   }
 
-  setMasterVolume(volume: number): void {
-    const normalized = Number.isFinite(volume) ? Math.max(0, Math.min(3.2, volume)) : this.masterVolume;
-    this.masterVolume = normalized;
-    if (this.masterGain) {
-      this.masterGain.gain.value = normalized;
+  setMainVolume(volume: number): void {
+    const normalized = Number.isFinite(volume) ? Math.max(0, Math.min(3.2, volume)) : this.mainVolume;
+    this.mainVolume = normalized;
+    if (this.mainGain) {
+      this.mainGain.gain.value = normalized;
     }
   }
 }

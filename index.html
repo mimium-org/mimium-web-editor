@@ -57,7 +57,7 @@
     .sidebar-list, .sidebar-item, .sidebar-msg, .sidebar-backdrop,
     .editor-area, #editorContainer,
     .controls, .btn, .btn-sidebar,
-    .volume-control, .volume-label, .volume-value, #masterVolSlider,
+    .volume-control, .volume-label, .volume-value, #mainVolSlider,
     .meter-area, #meterCanvas, #scopeCanvas,
     .status-area, .status-dot,
     .error-panel, .error-panel-icon, .error-panel-msg, .error-panel-close {
@@ -278,7 +278,7 @@
       white-space: nowrap;
     }
 
-    #masterVolSlider {
+    #mainVolSlider {
       width: 120px;
       accent-color: var(--accent);
       cursor: pointer;
@@ -461,8 +461,8 @@
       </div>
       <div class="volume-control">
         <span class="volume-label">Main Vol.</span>
-        <input id="masterVolSlider" type="range" min="-70" max="10" step="0.1" value="5.1" aria-label="Master Volume (dB)">
-        <span class="volume-value" id="masterVolValue">+5.1dB</span>
+        <input id="mainVolSlider" type="range" min="-70" max="10" step="0.1" value="0" aria-label="Main Volume (dB)">
+        <span class="volume-value" id="mainVolValue">+0.0dB</span>
       </div>
       <div class="meter-area">
         <canvas id="meterCanvas"></canvas>
