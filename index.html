@@ -389,6 +389,44 @@
       animation: pulse 1.5s infinite;
     }
 
+    @media (max-width: 980px) and (orientation: portrait) {
+      .app-footer {
+        height: auto;
+        min-height: var(--footer-h);
+        flex-wrap: wrap;
+        align-content: flex-start;
+        row-gap: 8px;
+        padding: 8px 12px;
+      }
+
+      .controls {
+        order: 1;
+      }
+
+      .volume-control {
+        order: 2;
+      }
+
+      .status-area {
+        order: 3;
+        margin-left: auto;
+      }
+
+      .meter-area {
+        order: 4;
+        width: 100%;
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+        gap: 8px;
+      }
+
+      #meterCanvas,
+      #scopeCanvas {
+        width: 100%;
+        min-width: 0;
+      }
+    }
+
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50%       { opacity: 0.4; }
