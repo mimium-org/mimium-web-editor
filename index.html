@@ -64,7 +64,7 @@
     .sidebar-list, .sidebar-item, .sidebar-msg, .sidebar-backdrop,
     .editor-area, #editorContainer, .rust-panel, .rust-panel-header,
     .rust-panel-title-wrap, .rust-panel-actions, .rust-panel-body,
-    .rust-panel-preview, .rust-panel-backdrop,
+    .rust-preview-editor, .rust-panel-backdrop,
     .controls, .btn, .btn-sidebar,
     .volume-control, .volume-label, .volume-value, #mainVolSlider,
     .meter-area, #meterCanvas, #scopeCanvas,
@@ -442,20 +442,10 @@
         #10131b;
     }
 
-    .rust-panel-preview {
+    .rust-preview-editor {
+      width: 100%;
+      height: 100%;
       min-height: 100%;
-      margin: 0;
-      padding: 16px;
-      font-size: 12px;
-      line-height: 1.6;
-      color: #d8dee9;
-      font-family: "SF Mono", "Fira Mono", Menlo, Consolas, monospace;
-      white-space: pre;
-      overflow: auto;
-    }
-
-    .rust-panel-empty {
-      color: #778195;
     }
 
     .btn-panel-close {
@@ -640,12 +630,13 @@
               <p class="rust-panel-subtitle">Generated from the current mimium source.</p>
             </div>
             <div class="rust-panel-actions">
+              <button class="btn" id="downloadRustBtn" title="Download generated Rust">Download</button>
               <button class="btn btn-rust" id="copyRustBtn" title="Copy generated Rust">Copy</button>
               <button class="btn btn-panel-close" id="closeRustPanelBtn" title="Close Rust preview">&#10005;</button>
             </div>
           </div>
           <div class="rust-panel-body">
-            <pre class="rust-panel-preview rust-panel-empty" id="rustPreview">Press Convert to Rust to preview transpiled code.</pre>
+            <div class="rust-preview-editor" id="rustPreviewEditor"></div>
           </div>
         </aside>
       </div>

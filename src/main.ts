@@ -39,7 +39,8 @@ const sidebarEl = document.getElementById("sidebar") as HTMLElement;
 const sidebarBackdrop = document.getElementById("sidebarBackdrop") as HTMLElement | null;
 const rustPanel = document.getElementById("rustPanel") as HTMLElement;
 const rustPanelBackdrop = document.getElementById("rustPanelBackdrop") as HTMLElement;
-const rustPreview = document.getElementById("rustPreview") as HTMLPreElement;
+const rustPreviewEditorEl = document.getElementById("rustPreviewEditor") as HTMLDivElement;
+const downloadRustBtn = document.getElementById("downloadRustBtn") as HTMLButtonElement;
 const copyRustBtn = document.getElementById("copyRustBtn") as HTMLButtonElement;
 const closeRustPanelBtn = document.getElementById("closeRustPanelBtn") as HTMLButtonElement;
 const statusDot = document.getElementById("statusDot") as HTMLDivElement;
@@ -87,6 +88,30 @@ const editor = monaco.editor.create(editorContainer, {
 
 const meter = new SignalMeter(meterCanvas);
 const scope = new WaveformScope(scopeCanvas);
+const rustPreviewModel = monaco.editor.createModel(
+  "Press Convert to Rust to preview transpiled code.",
+  "plaintext",
+);
+const rustPreviewEditor = monaco.editor.create(rustPreviewEditorEl, {
+  model: rustPreviewModel,
+  theme: "vs-dark",
+  readOnly: true,
+  domReadOnly: true,
+  minimap: { enabled: false },
+  scrollBeyondLastLine: false,
+  automaticLayout: true,
+  lineNumbers: "on",
+  renderLineHighlight: "none",
+  folding: true,
+  wordWrap: "off",
+  overviewRulerLanes: 0,
+  hideCursorInOverviewRuler: true,
+  overviewRulerBorder: false,
+  scrollbar: {
+    verticalScrollbarSize: 8,
+    horizontalScrollbarSize: 8,
+  },
+});
 let engine: AudioEngine | null = null;
 let meterRaf: number | null = null;
 let playingStatusBase = "Playing";
@@ -95,6 +120,7 @@ let shareLabelResetTimer: number | null = null;
 let rustCopyLabelResetTimer: number | null = null;
 let rustPanelOpen = false;
 let rustPreviewValue = "";
+let currentSourceFilename = "untitled.mmm";
 
 function dbToGain(db: number): number {
   return 10 ** (db / 20);
@@ -135,7 +161,8 @@ requestAnimationFrame(() => {
 
 const sidebar = new ExampleSidebar(
   sidebarEl,
-  (source) => {
+  (source, filename) => {
+    currentSourceFilename = filename;
     editor.setValue(source);
   },
   window.innerWidth >= 768,
@@ -176,12 +203,13 @@ function syncRustPanelState(): void {
   rustPanel.classList.toggle("rust-panel--open", rustPanelOpen);
   rustPanelBackdrop.classList.toggle("rust-panel-backdrop--visible", rustPanelOpen);
   rustPanel.setAttribute("aria-hidden", String(!rustPanelOpen));
+  rustPreviewEditor.layout();
 }
 
-function setRustPreview(content: string, empty = false): void {
+function setRustPreview(content: string, language: string, empty = false): void {
   rustPreviewValue = empty ? "" : content;
-  rustPreview.textContent = content;
-  rustPreview.classList.toggle("rust-panel-empty", empty);
+  rustPreviewModel.setValue(content);
+  monaco.editor.setModelLanguage(rustPreviewModel, language);
 }
 
 function openRustPanel(): void {
@@ -321,7 +349,7 @@ convertRustBtn.addEventListener("click", async () => {
   const source = editor.getValue();
   if (!source.trim()) {
     setStatus("No source code", false);
-    setRustPreview("Write some mimium source before converting.", true);
+    setRustPreview("Write some mimium source before converting.", "plaintext", true);
     openRustPanel();
     return;
   }
@@ -329,23 +357,43 @@ convertRustBtn.addEventListener("click", async () => {
   convertRustBtn.disabled = true;
   clearError();
   setStatus("Converting to Rust…", false);
-  setRustPreview("Transpiling current source to Rust…", true);
+  setRustPreview("Transpiling current source to Rust…", "plaintext", true);
   openRustPanel();
 
   try {
     const rustSource = await convertMimiumSourceToRust(source);
-    setRustPreview(rustSource);
+    setRustPreview(rustSource, "rust");
     resetRustCopyButton();
     setStatus("Rust preview ready", false);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     setStatus("Rust conversion failed", false);
     showError(message);
-    setRustPreview("Conversion failed. See the error panel for details.", true);
+    setRustPreview("Conversion failed. See the error panel for details.", "plaintext", true);
     console.error("[mimium-editor] Rust conversion error:", err);
   } finally {
     convertRustBtn.disabled = false;
   }
+});
+
+downloadRustBtn.addEventListener("click", () => {
+  if (!rustPreviewValue) {
+    return;
+  }
+
+  const baseName = currentSourceFilename.endsWith(".mmm")
+    ? currentSourceFilename.replace(/\.mmm$/, "")
+    : currentSourceFilename;
+  const downloadName = `${baseName || "untitled"}.rs`;
+  const blob = new Blob([rustPreviewValue], { type: "text/x-rust;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = downloadName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 });
 
 copyRustBtn.addEventListener("click", async () => {
@@ -382,6 +430,7 @@ function applySourceFromHash(): void {
     if (editor.getValue() === sourceFromHash) {
       return;
     }
+    currentSourceFilename = "untitled.mmm";
     editor.setValue(sourceFromHash);
   }
 }
@@ -404,4 +453,5 @@ window.addEventListener("locationchange", applySourceFromHash);
 
 window.addEventListener("resize", () => {
   editor.layout();
+  rustPreviewEditor.layout();
 });
