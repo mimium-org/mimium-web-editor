@@ -1,6 +1,6 @@
 import * as monaco from "monaco-editor";
 import { AudioEngine } from "./audio/audioEngine";
-import { loadMimiumWebAudioModule } from "./audio/mimiumModule";
+import { convertMimiumSourceToRust, loadMimiumWebAudioModule } from "./audio/mimiumModule";
 import { LANGUAGE_ID, registerMimiumLanguage } from "./editor/language";
 import { registerThemes } from "./editor/themes";
 import { ExampleSidebar } from "./ui/exampleSidebar";
@@ -33,9 +33,15 @@ const playBtn = document.getElementById("playBtn") as HTMLButtonElement;
 const stopBtn = document.getElementById("stopBtn") as HTMLButtonElement;
 const updateBtn = document.getElementById("updateBtn") as HTMLButtonElement;
 const shareBtn = document.getElementById("shareBtn") as HTMLButtonElement;
+const convertRustBtn = document.getElementById("convertRustBtn") as HTMLButtonElement;
 const sidebarToggle = document.getElementById("sidebarToggle") as HTMLButtonElement;
 const sidebarEl = document.getElementById("sidebar") as HTMLElement;
 const sidebarBackdrop = document.getElementById("sidebarBackdrop") as HTMLElement | null;
+const rustPanel = document.getElementById("rustPanel") as HTMLElement;
+const rustPanelBackdrop = document.getElementById("rustPanelBackdrop") as HTMLElement;
+const rustPreview = document.getElementById("rustPreview") as HTMLPreElement;
+const copyRustBtn = document.getElementById("copyRustBtn") as HTMLButtonElement;
+const closeRustPanelBtn = document.getElementById("closeRustPanelBtn") as HTMLButtonElement;
 const statusDot = document.getElementById("statusDot") as HTMLDivElement;
 const statusText = document.getElementById("statusText") as HTMLSpanElement;
 const meterCanvas = document.getElementById("meterCanvas") as HTMLCanvasElement;
@@ -86,6 +92,9 @@ let meterRaf: number | null = null;
 let playingStatusBase = "Playing";
 let mainVolumeDb = Number.parseFloat(mainVolSlider.value) || 0;
 let shareLabelResetTimer: number | null = null;
+let rustCopyLabelResetTimer: number | null = null;
+let rustPanelOpen = false;
+let rustPreviewValue = "";
 
 function dbToGain(db: number): number {
   return 10 ** (db / 20);
@@ -161,6 +170,43 @@ errorClose.addEventListener("click", clearError);
 function setStatus(text: string, playing: boolean): void {
   statusText.textContent = text;
   statusDot.className = playing ? "status-dot status-dot--playing" : "status-dot";
+}
+
+function syncRustPanelState(): void {
+  rustPanel.classList.toggle("rust-panel--open", rustPanelOpen);
+  rustPanelBackdrop.classList.toggle("rust-panel-backdrop--visible", rustPanelOpen);
+  rustPanel.setAttribute("aria-hidden", String(!rustPanelOpen));
+}
+
+function setRustPreview(content: string, empty = false): void {
+  rustPreviewValue = empty ? "" : content;
+  rustPreview.textContent = content;
+  rustPreview.classList.toggle("rust-panel-empty", empty);
+}
+
+function openRustPanel(): void {
+  rustPanelOpen = true;
+  syncRustPanelState();
+}
+
+function closeRustPanel(): void {
+  rustPanelOpen = false;
+  syncRustPanelState();
+}
+
+function resetRustCopyButton(): void {
+  copyRustBtn.textContent = "Copy";
+  copyRustBtn.title = "Copy generated Rust";
+}
+
+function scheduleRustCopyButtonReset(): void {
+  if (rustCopyLabelResetTimer !== null) {
+    window.clearTimeout(rustCopyLabelResetTimer);
+  }
+  rustCopyLabelResetTimer = window.setTimeout(() => {
+    resetRustCopyButton();
+    rustCopyLabelResetTimer = null;
+  }, 1200);
 }
 
 function startMeterLoop(): void {
@@ -268,6 +314,65 @@ shareBtn.addEventListener("click", async () => {
     prompt("Copy this URL to share:", url);
     shareBtn.innerHTML = defaultShareLabelHtml;
     shareBtn.title = "Share URL";
+  }
+});
+
+convertRustBtn.addEventListener("click", async () => {
+  const source = editor.getValue();
+  if (!source.trim()) {
+    setStatus("No source code", false);
+    setRustPreview("Write some mimium source before converting.", true);
+    openRustPanel();
+    return;
+  }
+
+  convertRustBtn.disabled = true;
+  clearError();
+  setStatus("Converting to Rust…", false);
+  setRustPreview("Transpiling current source to Rust…", true);
+  openRustPanel();
+
+  try {
+    const rustSource = await convertMimiumSourceToRust(source);
+    setRustPreview(rustSource);
+    resetRustCopyButton();
+    setStatus("Rust preview ready", false);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    setStatus("Rust conversion failed", false);
+    showError(message);
+    setRustPreview("Conversion failed. See the error panel for details.", true);
+    console.error("[mimium-editor] Rust conversion error:", err);
+  } finally {
+    convertRustBtn.disabled = false;
+  }
+});
+
+copyRustBtn.addEventListener("click", async () => {
+  if (!rustPreviewValue) {
+    return;
+  }
+
+  try {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error("Clipboard API is not available");
+    }
+    await navigator.clipboard.writeText(rustPreviewValue);
+    copyRustBtn.textContent = "Copied";
+    copyRustBtn.title = "Rust code copied";
+    scheduleRustCopyButtonReset();
+  } catch {
+    prompt("Copy this Rust source:", rustPreviewValue);
+    resetRustCopyButton();
+  }
+});
+
+closeRustPanelBtn.addEventListener("click", closeRustPanel);
+rustPanelBackdrop.addEventListener("click", closeRustPanel);
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && rustPanelOpen) {
+    closeRustPanel();
   }
 });
 

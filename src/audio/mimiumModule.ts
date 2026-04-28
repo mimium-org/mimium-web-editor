@@ -11,6 +11,7 @@ type MimiumWebAudioModule = {
     options?: { libBaseUrl?: string; moduleBaseUrl?: string },
   ) => Promise<MimiumProcessorNode>;
   preloadMimiumLibCache?: (options?: { libBaseUrl?: string }) => Promise<void>;
+  transpileMimiumToRust: (source: string) => Promise<string>;
 };
 
 const nativeTextEncoder = globalThis.TextEncoder;
@@ -34,4 +35,18 @@ export async function loadMimiumWebAudioModule(): Promise<MimiumWebAudioModule> 
     });
   }
   return mimiumWebAudioModulePromise;
+}
+
+export async function convertMimiumSourceToRust(source: string): Promise<string> {
+  const mimiumWebAudio = await loadMimiumWebAudioModule();
+  const rustSource = await mimiumWebAudio.transpileMimiumToRust(source);
+
+  if (nativeTextEncoder) {
+    globalThis.TextEncoder = nativeTextEncoder;
+  }
+  if (nativeTextDecoder) {
+    globalThis.TextDecoder = nativeTextDecoder;
+  }
+
+  return rustSource;
 }

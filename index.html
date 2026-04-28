@@ -59,10 +59,12 @@
     }
 
     /* Apply box-sizing only to our own app elements, not Monaco's internals */
-    .app, .app-header, .header-left, .logo-link,
+    .app, .app-header, .header-left, .header-right, .logo-link,
     .app-body, .app-footer, .sidebar, .sidebar-header,
     .sidebar-list, .sidebar-item, .sidebar-msg, .sidebar-backdrop,
-    .editor-area, #editorContainer,
+    .editor-area, #editorContainer, .rust-panel, .rust-panel-header,
+    .rust-panel-title-wrap, .rust-panel-actions, .rust-panel-body,
+    .rust-panel-preview, .rust-panel-backdrop,
     .controls, .btn, .btn-sidebar,
     .volume-control, .volume-label, .volume-value, #mainVolSlider,
     .meter-area, #meterCanvas, #scopeCanvas,
@@ -91,6 +93,13 @@
     }
 
     .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .header-right {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -243,6 +252,7 @@
       min-height: 0;
       overflow: hidden;
       background: #13131e; /* slightly darker surround when editor is constrained */
+      position: relative;
     }
 
     #editorContainer {
@@ -344,6 +354,115 @@
       text-overflow: ellipsis;
     }
 
+    .btn-rust  { border-color: #d19a66; color: #d19a66; }
+    .btn-rust:hover:not(:disabled) { background: rgba(209,154,102,0.15); }
+
+    .rust-panel-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.18);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 6;
+    }
+
+    .rust-panel-backdrop--visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .rust-panel {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      bottom: 12px;
+      width: min(46vw, 680px);
+      min-width: 320px;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(209,154,102,0.28);
+      border-radius: 12px;
+      background: rgba(14,16,24,0.98);
+      box-shadow: 0 20px 56px rgba(0,0,0,0.38);
+      overflow: hidden;
+      transform: translateX(calc(100% + 24px));
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.22s ease, opacity 0.22s ease;
+      z-index: 7;
+    }
+
+    .rust-panel--open {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .rust-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(180deg, rgba(209,154,102,0.12), rgba(209,154,102,0.03));
+    }
+
+    .rust-panel-title-wrap {
+      min-width: 0;
+    }
+
+    .rust-panel-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      color: #f3c290;
+    }
+
+    .rust-panel-subtitle {
+      margin: 4px 0 0;
+      font-size: 11px;
+      color: #a8b0c0;
+    }
+
+    .rust-panel-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .rust-panel-body {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.03), transparent 120px),
+        #10131b;
+    }
+
+    .rust-panel-preview {
+      min-height: 100%;
+      margin: 0;
+      padding: 16px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #d8dee9;
+      font-family: "SF Mono", "Fira Mono", Menlo, Consolas, monospace;
+      white-space: pre;
+      overflow: auto;
+    }
+
+    .rust-panel-empty {
+      color: #778195;
+    }
+
+    .btn-panel-close {
+      padding: 5px 9px;
+      min-width: 0;
+    }
+
     /* ── Meter ── */
     .meter-area {
       display: flex;
@@ -427,6 +546,28 @@
       }
     }
 
+    @media (max-width: 767px) {
+      .header-right {
+        gap: 6px;
+      }
+
+      .rust-panel {
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: min(100%, 100vw);
+        min-width: 0;
+        border-radius: 0;
+      }
+
+      .btn-share,
+      .btn-rust {
+        max-width: 42vw;
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+    }
+
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50%       { opacity: 0.4; }
@@ -474,7 +615,8 @@
           <span class="app-title">mimium web editor</span>
         </a>
       </div>
-      <div>
+      <div class="header-right">
+        <button class="btn btn-rust" id="convertRustBtn" title="Convert current source to Rust">Convert to Rust</button>
         <button class="btn btn-share" id="shareBtn" title="Share URL">&#128279; Share URL</button>
       </div>
     </header>
@@ -490,6 +632,22 @@
 
       <div class="editor-area">
         <div id="editorContainer"></div>
+        <div class="rust-panel-backdrop" id="rustPanelBackdrop"></div>
+        <aside class="rust-panel" id="rustPanel" aria-hidden="true">
+          <div class="rust-panel-header">
+            <div class="rust-panel-title-wrap">
+              <h2 class="rust-panel-title">Rust Preview</h2>
+              <p class="rust-panel-subtitle">Generated from the current mimium source.</p>
+            </div>
+            <div class="rust-panel-actions">
+              <button class="btn btn-rust" id="copyRustBtn" title="Copy generated Rust">Copy</button>
+              <button class="btn btn-panel-close" id="closeRustPanelBtn" title="Close Rust preview">&#10005;</button>
+            </div>
+          </div>
+          <div class="rust-panel-body">
+            <pre class="rust-panel-preview rust-panel-empty" id="rustPreview">Press Convert to Rust to preview transpiled code.</pre>
+          </div>
+        </aside>
       </div>
     </div>
 
