@@ -1,6 +1,6 @@
 {
   "name": "mimium-web-editor",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@mimium/mimium-webaudio": "^4.1.0",
+    "@mimium/mimium-webaudio": "^4.1.1",
     "monaco-editor": "0.55.1"
   },
   "devDependencies": {
